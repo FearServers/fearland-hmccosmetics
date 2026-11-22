@@ -17,6 +17,10 @@ function connect(){return new Promise(res=>{
 })}
 const say=async(b,c,wait=1500)=>{b.log.length=0;b.chat(c);await sleep(wait);return b.log.join(' | ')};
 const has=(s,r)=>new RegExp(r,'i').test(s);
+// Exact row of this bot: its own UUID, never "any row".
+const rowOf=b=>psql(`select 'row:'||cosmetics from cosmeticdatabase where uuid='${b.player.uuid}'`);
+// The bot must be on the destination server, not merely have typed /server.
+const onServer=(s,n)=>rcon(s,'list').includes(n);
 (async()=>{
  let b=await connect();await sleep(4000);
  console.log('REG',await say(b,'/register Fl_pass_123 Fl_pass_123',4000));
@@ -35,22 +39,23 @@ const has=(s,r)=>new RegExp(r,'i').test(s);
  r=await say(b,'/cosmetic apply mechanic_hat');ok('item-only cosmetic (no category) equips',has(r,'equipped mechanic_hat'),r.slice(-120));
  r=await say(b,'/cosmetic apply top_hat');
  await sleep(2500);
- const uuid=psql("select uuid||' '||cosmetics from cosmeticdatabase");console.log('db',uuid);
- ok('postgres row written',/top_hat/.test(uuid),uuid);
+ const uuid=rowOf(b);console.log('db',b.player.uuid,uuid);
+ ok('postgres row written (exact uuid)',/^row:.*top_hat/.test(uuid),uuid);
  // fast transfer right after change
  r=await say(b,'/cosmetic apply top_hat',300);b.chat('/server smp');await sleep(7000);
- console.log('smp list',rcon('smp','list'));
+ ok('bot is on smp',onServer('smp',pn),rcon('smp','list'));
  r=await say(b,'/cosmetic unapply HELMET',2000);ok('lobby->smp: equipment follows (fast transfer)',has(r,'unequipped top_hat'),r.slice(-150));
  r=await say(b,'/cosmetic apply top_hat',1500);ok('smp equip',has(r,'equipped top_hat'),r.slice(-100));
  b.chat('/server lobby');await sleep(7000);
+ ok('bot is back on lobby',onServer('lobby',pn),rcon('lobby','list'));
  r=await say(b,'/cosmetic unapply HELMET',2000);ok('smp->lobby: equipment follows',has(r,'unequipped top_hat'),r.slice(-150));
  // postgres outage
  r=await say(b,'/cosmetic apply top_hat',1000);
  sh('docker stop fearland-dev-postgres-1');
  r=await say(b,'/cosmetic unapply HELMET',500);ok('equip change during outage does not crash',has(r,'unequipped'),r.slice(-100));
  await sleep(2000);sh('docker start fearland-dev-postgres-1');await sleep(15000);
- const row=psql("select cosmetics from cosmeticdatabase");console.log('row after outage',JSON.stringify(row));
- ok('unequip made during the outage reached the row after it',!/^ERR/.test(row)&&!/top_hat/.test(row.split('\n').filter(l=>l).join('')),row);
+ const row=rowOf(b);console.log('row after outage',JSON.stringify(row));
+ ok('unequip made during the outage reached the row after it',/^row:/.test(row)&&!/top_hat/.test(row),row);
  b.end();await sleep(2000);
  b=await connect();await sleep(5000);
  console.log(await say(b,'/login Fl_pass_123',3000));await sleep(4000);
