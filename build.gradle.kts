@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.hibiscusmc"
-version = "2.9.3"
+version = "2.9.3-fearland.1"
 
 val javaVersion = JavaLanguageVersion.of(libs.versions.java.get())
 
@@ -85,6 +85,8 @@ bukkit {
     main = "com.hibiscusmc.hmccosmetics.HMCCosmeticsPlugin"
     version = "${project.version}"
     apiVersion = "1.20"
+    // PostgreSQL storage; Paper downloads these on first start
+    libraries = listOf("com.zaxxer:HikariCP:6.3.0", "org.postgresql:postgresql:42.7.7")
     load = PluginLoadOrder.POSTWORLD
     authors = listOf("LoJoSho", "boy0000")
     depend = listOf("HibiscusCommons")

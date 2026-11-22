@@ -13,6 +13,9 @@ commons-io = { module = "commons-io:commons-io", version = "2.17.0" } # The vers
 hibiscuscommons = { module = "me.lojosho:HibiscusCommons", version = "0.9.3" }
 triumph-gui = { module = "dev.triumphteam:triumph-gui", version = "3.2.0-SNAPSHOT" }
 
+hikari = { module = "com.zaxxer:HikariCP", version = "6.3.0" }
+postgresql = { module = "org.postgresql:postgresql", version = "42.7.7" }
+
 betterhud-standard = { module = "io.github.toxicity188:BetterHud-standard-api", version.ref = "betterhud" }
 betterhud-bukkit = { module = "io.github.toxicity188:BetterHud-bukkit-api", version.ref = "betterhud" }
 bettercommand = { module = "io.github.toxicity188:BetterCommand", version = "1.3" }

@@ -124,6 +124,7 @@ public final class HMCCosmeticsPlugin extends HibiscusPlugin {
 
         // Listener
         getServer().getPluginManager().registerEvents(new PlayerConnectionListener(), this);
+        getServer().getPluginManager().registerEvents(new CosmeticSaveListener(), this);
         getServer().getPluginManager().registerEvents(new PlayerGameListener(), this);
         getServer().getPluginManager().registerEvents(new ServerListener(), this);
         getServer().getPluginManager().registerEvents(new PlayerMovementListener(), this);
@@ -178,6 +179,7 @@ public final class HMCCosmeticsPlugin extends HibiscusPlugin {
             }
             Database.save(user);
         }
+        Database.close();
     }
 
     public static HMCCosmeticsPlugin getInstance() {

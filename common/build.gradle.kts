@@ -28,6 +28,9 @@ dependencies {
         exclude(group = "org.enginehub.lin-bus.format")
     }
 
+    compileOnly(libs.hikari) // Loaded by the server (bukkit libraries)
+    compileOnly(libs.postgresql)
+
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
     testCompileOnly(libs.lombok)

@@ -30,6 +30,19 @@ public class DatabaseSettings {
     @Getter
     private static int port;
     @Getter
+    private static String postgresHost;
+    @Getter
+    private static int postgresPort;
+    @Getter
+    private static String postgresDatabase;
+    @Getter
+    private static String postgresUsername;
+    /** Config value, or the FEARLAND_API_DB_PASSWORD environment variable when the config one is empty. */
+    @Getter
+    private static String postgresPassword;
+    @Getter
+    private static int postgresPoolSize;
+    @Getter
     private static boolean enabledDelay;
     @Getter
     private static int delayLength;
@@ -44,6 +57,15 @@ public class DatabaseSettings {
         host = mySql.node(MYSQL_HOST).getString();
         username = mySql.node(MYSQL_USER).getString();
         port = mySql.node(MYSQL_PORT).getInt();
+
+        ConfigurationNode pg = source.node("postgresql");
+        postgresHost = pg.node("host").getString("localhost");
+        postgresPort = pg.node("port").getInt(5432);
+        postgresDatabase = pg.node("database").getString("fearland");
+        postgresUsername = pg.node("user").getString("fearland");
+        String pgPassword = pg.node("password").getString("");
+        postgresPassword = pgPassword.isEmpty() ? System.getenv().getOrDefault("FEARLAND_API_DB_PASSWORD", "") : pgPassword;
+        postgresPoolSize = pg.node("pool-size").getInt(3);
 
         ConfigurationNode delay = source.node(DELAY_PATH);
 
