@@ -28,6 +28,8 @@ public class PostgreSQLData extends Data {
 
     private static final int READ_ATTEMPTS = 3;
     private static final long READ_RETRY_MS = 1500;
+    private static final int WRITE_ATTEMPTS = 4;
+    private static final long WRITE_RETRY_MS = 3000;
 
     private HikariDataSource pool;
     private ExecutorService writer;
@@ -66,14 +68,25 @@ public class PostgreSQLData extends Data {
         final UUID id = user.getUniqueId();
         final String serialized = serializeData(user);
         writer.execute(() -> {
-            try (Connection c = pool.getConnection(); PreparedStatement ps = c.prepareStatement(
-                    "INSERT INTO cosmeticdatabase (uuid, cosmetics, updated_at) VALUES (?, ?, now()) "
-                            + "ON CONFLICT (uuid) DO UPDATE SET cosmetics = EXCLUDED.cosmetics, updated_at = now()")) {
-                ps.setObject(1, id);
-                ps.setString(2, serialized);
-                ps.executeUpdate();
-            } catch (SQLException e) {
-                HMCCosmeticsPlugin.getInstance().getLogger().severe("Could not save cosmetics of " + id + ": " + e.getMessage());
+            // Retries stay on the single writer thread, so later saves of the same player still land after this one.
+            for (int attempt = 1; attempt <= WRITE_ATTEMPTS; attempt++) {
+                try (Connection c = pool.getConnection(); PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO cosmeticdatabase (uuid, cosmetics, updated_at) VALUES (?, ?, now()) "
+                                + "ON CONFLICT (uuid) DO UPDATE SET cosmetics = EXCLUDED.cosmetics, updated_at = now()")) {
+                    ps.setObject(1, id);
+                    ps.setString(2, serialized);
+                    ps.executeUpdate();
+                    return;
+                } catch (SQLException e) {
+                    HMCCosmeticsPlugin.getInstance().getLogger().severe("Could not save cosmetics of " + id + " (attempt " + attempt + "/" + WRITE_ATTEMPTS + "): " + e.getMessage());
+                    if (attempt == WRITE_ATTEMPTS) return;
+                    try {
+                        Thread.sleep(WRITE_RETRY_MS);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
             }
         });
     }
