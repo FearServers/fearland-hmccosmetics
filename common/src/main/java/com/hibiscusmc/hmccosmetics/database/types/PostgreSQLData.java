@@ -11,7 +11,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -34,6 +36,8 @@ public class PostgreSQLData extends Data {
     private HikariDataSource pool;
     private ExecutorService writer;
     private ExecutorService reader;
+    /** What each player's row held when it was last read or written here; an unchanged user is not written back, so a stale load cannot overwrite another server's newer save. */
+    private final Map<UUID, String> known = new ConcurrentHashMap<>();
 
     @Override
     public void setup() {
@@ -67,6 +71,7 @@ public class PostgreSQLData extends Data {
     public void save(CosmeticUser user) {
         final UUID id = user.getUniqueId();
         final String serialized = serializeData(user);
+        if (serialized.equals(known.get(id))) return;
         writer.execute(() -> {
             // Retries stay on the single writer thread, so later saves of the same player still land after this one.
             for (int attempt = 1; attempt <= WRITE_ATTEMPTS; attempt++) {
@@ -76,6 +81,7 @@ public class PostgreSQLData extends Data {
                     ps.setObject(1, id);
                     ps.setString(2, serialized);
                     ps.executeUpdate();
+                    known.put(id, serialized);
                     return;
                 } catch (SQLException e) {
                     HMCCosmeticsPlugin.getInstance().getLogger().severe("Could not save cosmetics of " + id + " (attempt " + attempt + "/" + WRITE_ATTEMPTS + "): " + e.getMessage());
@@ -101,7 +107,12 @@ public class PostgreSQLData extends Data {
                     ps.setObject(1, uniqueId);
                     UserData data = new UserData(uniqueId);
                     try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) data.setCosmetics(deserializeData(rs.getString("cosmetics")));
+                        String stored = "";
+                        if (rs.next()) {
+                            stored = rs.getString("cosmetics");
+                            data.setCosmetics(deserializeData(stored));
+                        }
+                        known.put(uniqueId, stored);
                     }
                     return data;
                 } catch (SQLException e) {
@@ -122,6 +133,7 @@ public class PostgreSQLData extends Data {
 
     @Override
     public void clear(UUID uniqueId) {
+        known.remove(uniqueId);
         writer.execute(() -> {
             try (Connection c = pool.getConnection(); PreparedStatement ps = c.prepareStatement("DELETE FROM cosmeticdatabase WHERE uuid = ?")) {
                 ps.setObject(1, uniqueId);
@@ -137,8 +149,11 @@ public class PostgreSQLData extends Data {
         if (writer == null) return;
         writer.shutdown();
         try {
-            if (!writer.awaitTermination(10, TimeUnit.SECONDS)) {
+            if (!writer.awaitTermination(30, TimeUnit.SECONDS)) {
+                // The pool stays open: closing it under a running save would lose that save for sure.
                 HMCCosmeticsPlugin.getInstance().getLogger().warning("Some cosmetic saves were still pending on shutdown.");
+                reader.shutdown();
+                return;
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
