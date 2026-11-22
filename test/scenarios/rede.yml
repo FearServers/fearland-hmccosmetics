@@ -1,0 +1,5 @@
+- section: Entrada pela rede
+- sleep: 8000
+- command: register Fl_pass_123 Fl_pass_123
+- sleep: 5000
+- screenshot: 00-depois-do-registo

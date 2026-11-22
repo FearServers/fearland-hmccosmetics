@@ -1,19 +1,57 @@
-- section: Entrada
-- command: cosmetic
+required: true
+- section: Sem permissao
+- console: tp @bot 0.5 -60 0.5
 - sleep: 1500
-- screenshot: 00-sem-cosmeticos
-- section: Chapeus do Nexo
-- console: lp user @bot permission set fearland.cosmetics.hats true
-- console: lp user @bot permission set fearland.cosmetics.top_hat true
-- console: lp user @bot permission set fearland.cosmetics.glacial_crown true
-- console: lp user @bot permission set fearland.cosmetics.dragon_hat true
-- console: lp user @bot permission set fearland.cosmetics.backpacks true
 - command: cosmetic apply top_hat
-- expectLog: top_hat
+- expectChat: do not have permission
+- command: cosmetic unapply HELMET
+- expectChat: no cosmetics in that slot
+- screenshot: 00-sem-permissao
+- section: Equipar
+- op:
+- command: cosmetic apply top_hat
+- expectChat: equipped top_hat
+- command: cosmetic apply dragon_hat
+- expectChat: equipped dragon_hat
 - key: F5
 - sleep: 1200
-- screenshot: 01-cartola-3a-pessoa
+- screenshot: 01-dragao-3a-pessoa
 - key: F5
 - key: F5
+- section: Menu
+- command: cosmetic
+- sleep: 1200
+- screenshot: 02-menu
+- key: ESCAPE
+- section: Persistencia depois de sair e voltar
+- desconectar:
+- sleep: 1500
+- reconectar:
+- sleep: 3000
+- command: cosmetic unapply HELMET
+- expectChat: unequipped dragon_hat
+- command: cosmetic apply dragon_hat
+- expectChat: equipped dragon_hat
+- section: Saida imediata depois de equipar
+- command: cosmetic apply top_hat
+- desconectar:
+- reconectar:
+- sleep: 3000
+- command: cosmetic unapply HELMET
+- expectChat: unequipped top_hat
+- command: cosmetic apply dragon_hat
+- expectChat: equipped dragon_hat
+- section: Restart
+- restart:
+- sleep: 3000
+- command: cosmetic unapply HELMET
+- expectChat: unequipped dragon_hat
+- command: cosmetic apply dragon_hat
+- expectChat: equipped dragon_hat
+- section: Crash
 - sleep: 800
-- screenshot: 02-cartola-3a-pessoa-frente
+- cair:
+- sleep: 3000
+- command: cosmetic unapply HELMET
+- expectChat: unequipped dragon_hat
+- screenshot: 03-removida
