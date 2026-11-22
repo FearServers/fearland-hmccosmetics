@@ -42,6 +42,7 @@ public class PostgreSQLData extends Data {
         config.setPassword(DatabaseSettings.getPostgresPassword());
         config.setMaximumPoolSize(DatabaseSettings.getPostgresPoolSize());
         config.setPoolName("HMCCosmetics");
+        config.setDriverClassName("org.postgresql.Driver"); // the driver lives in the plugin library loader, DriverManager cannot see it
         // Do not fail the plugin start when the database is down; reads retry and writes are logged.
         config.setInitializationFailTimeout(-1);
         config.setConnectionTimeout(5000);
