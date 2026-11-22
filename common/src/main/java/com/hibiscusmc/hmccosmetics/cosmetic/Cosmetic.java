@@ -45,6 +45,9 @@ public abstract class Cosmetic {
     /** Permission to use the cosmetic. */
     private String permission;
 
+    /** Optional permission to access the cosmetic's category; checked together with {@link #permission}. */
+    private String categoryPermission;
+
     /** The display {@link ItemStack} of the cosmetic. */
     @Getter(AccessLevel.NONE) @Setter(AccessLevel.NONE)
     private ItemStack item;
@@ -70,6 +73,8 @@ public abstract class Cosmetic {
         } else {
             this.permission = null;
         }
+
+        this.categoryPermission = config.node("category-permission").getString();
 
         if (!config.node("item").virtual()) {
             this.material = config.node("item", "material").getString();
@@ -98,7 +103,11 @@ public abstract class Cosmetic {
     }
 
     public boolean requiresPermission() {
-        return permission != null && !permission.isBlank();
+        return permission != null && !permission.isBlank() || requiresCategoryPermission();
+    }
+
+    public boolean requiresCategoryPermission() {
+        return categoryPermission != null && !categoryPermission.isBlank();
     }
 
     /**

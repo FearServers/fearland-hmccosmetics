@@ -26,6 +26,9 @@ public abstract class Data {
 
     public abstract void clear(UUID uniqueId);
 
+    /** Releases resources after the final saves; nothing to do by default. */
+    public void close() {}
+
     // BACKPACK=colorfulbackpack&RRGGBB,HELMET=niftyhat,BALLOON=colorfulballoon,CHESTPLATE=niftychestplate
     @NotNull
     public final String serializeData(@NotNull CosmeticUser user) {
