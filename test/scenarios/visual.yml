@@ -1,0 +1,19 @@
+- section: Entrada
+- command: cosmetic
+- sleep: 1500
+- screenshot: 00-sem-cosmeticos
+- section: Chapeus do Nexo
+- console: lp user @bot permission set fearland.cosmetics.hats true
+- console: lp user @bot permission set fearland.cosmetics.top_hat true
+- console: lp user @bot permission set fearland.cosmetics.glacial_crown true
+- console: lp user @bot permission set fearland.cosmetics.dragon_hat true
+- console: lp user @bot permission set fearland.cosmetics.backpacks true
+- command: cosmetic apply top_hat
+- expectLog: top_hat
+- key: F5
+- sleep: 1200
+- screenshot: 01-cartola-3a-pessoa
+- key: F5
+- key: F5
+- sleep: 800
+- screenshot: 02-cartola-3a-pessoa-frente

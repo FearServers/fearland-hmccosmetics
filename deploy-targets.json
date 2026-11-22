@@ -1,0 +1,11 @@
+{
+  "artifacts": [
+    {
+      "id": "hmccosmetics",
+      "platform": "paper",
+      "task": "shadowJar",
+      "prefix": "HMCCosmeticsRemapped",
+      "destinations": ["lobby"]
+    }
+  ]
+}
