@@ -13,6 +13,8 @@ Base: upstream `remapped` (2.9.3). Version `2.9.3-fearland.1`. Paper 26.x, Hibis
 - `test/scenarios/visual.yml` (`fl test`, real Fabric client, no LuckPerms/Nexo on that server): denied without permission, equip, menu, reconnect, immediate leave after equip, restart, crash. Report and screenshots: `docs/evidence/`.
 - `test/network/network-check.js` (mineflayer through the local Velocity, lobby + smp, LuckPerms, PostgreSQL): item-only / category-only / both permissions, row in PostgreSQL, lobby<->smp transfers right after an equip, PostgreSQL stopped while changing equipment.
 
+Last run 2026-11-22 (final jar, sha256 `1a7519cb…1441`, `FEARLAND_SERVER_DIR` = checkout with HibiscusCommons declared): `fl test` PASSOU; `network-check.js` 13/13 (reads the bot's exact row by UUID, confirms the bot is on the destination server).
+
 ## Limits
 - The Fabric client cannot join the local network (it accepts only 1.21.11/26.1/26.2), and `fl test` has neither Nexo nor LuckPerms: Nexo models were not seen rendered in a screenshot; only the vanilla item and the menu were.
 - Dye colors: stored by the unchanged upstream serializer, not exercised in game.
