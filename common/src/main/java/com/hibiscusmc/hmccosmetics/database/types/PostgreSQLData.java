@@ -46,6 +46,9 @@ public class PostgreSQLData extends Data {
         // Do not fail the plugin start when the database is down; reads retry and writes are logged.
         config.setInitializationFailTimeout(-1);
         config.setConnectionTimeout(5000);
+        // A database that stops answering must fail a statement (logged, retried by the next save), not park the writer thread forever.
+        config.addDataSourceProperty("connectTimeout", "5");
+        config.addDataSourceProperty("socketTimeout", "15");
         pool = new HikariDataSource(config);
         writer = Executors.newSingleThreadExecutor(r -> new Thread(r, "HMCCosmetics-db-write"));
         reader = Executors.newCachedThreadPool(r -> new Thread(r, "HMCCosmetics-db-read"));
