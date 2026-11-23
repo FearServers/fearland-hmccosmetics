@@ -36,7 +36,17 @@ dependencies {
     testCompileOnly(libs.lombok)
     testAnnotationProcessor(libs.lombok)
 
+    testImplementation(libs.junit)
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(libs.hikari)
+    testImplementation(libs.postgresql)
+    testImplementation(libs.paper.api) // the persistence classes reference Bukkit types
+
     implementation(libs.triumph.gui) { exclude("net.kyori") }
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 publishing {

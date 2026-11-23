@@ -1,0 +1,25 @@
+REG You have successfully registered.
+You are already logged in.
+list There are 1 of a max of 10 players online: hmc_tst_e702 There are 0 of a max of 10 players online:
+PASS no perms denied HMCCosmetics You do not have permission for this cosmetic! »
+PASS item perm only (category missing) denied HMCCosmetics You do not have permission for this cosmetic! »
+PASS category only (item missing) denied HMCCosmetics You do not have permission for this cosmetic! »
+PASS both perms equips HMCCosmetics You have equipped top_hat! »
+PASS item-only cosmetic (no category) equips HMCCosmetics You have equipped mechanic_hat! »
+db 31578cf1-b83e-37f1-ad95-60727518dd70 row:HELMET=top_hat
+PASS postgres row written (exact uuid) row:HELMET=top_hat
+PASS dyed_cap equips with color HMCCosmetics You have equipped dyed_cap! »
+PASS row keeps the dye color (FF0000 = 16711680) row:HELMET=dyed_cap&16711680
+PASS dye color unchanged after lobby->smp->lobby row:HELMET=dyed_cap&16711680
+PASS bot is on smp There are 1 of a max of 10 players online: hmc_tst_e702
+PASS lobby->smp: equipment follows (fast transfer) HMCCosmetics You have unequipped top_hat! »
+PASS smp equip HMCCosmetics You have equipped top_hat! »
+PASS bot is back on lobby There are 1 of a max of 10 players online: hmc_tst_e702
+PASS smp->lobby: equipment follows HMCCosmetics You have unequipped top_hat! »
+PASS equip change during outage does not crash HMCCosmetics You have unequipped top_hat! »
+row after outage "row:"
+PASS unequip made during the outage reached the row after it row:
+You have successfully logged.
+HMCCosmetics You do not have permission for this cosmetic! »
+There are 1 of a max of 10 players online: hmc_tst_e702
+[["PASS","no perms denied","HMCCosmetics You do not have permission for this cosmetic! »"],["PASS","item perm only (category missing) denied","HMCCosmetics You do not have permission for this cosmetic! »"],["PASS","category only (item missing) denied","HMCCosmetics You do not have permission for this cosmetic! »"],["PASS","both perms equips","HMCCosmetics You have equipped top_hat! »"],["PASS","item-only cosmetic (no category) equips","HMCCosmetics You have equipped mechanic_hat! »"],["PASS","postgres row written (exact uuid)","row:HELMET=top_hat"],["PASS","dyed_cap equips with color","HMCCosmetics You have equipped dyed_cap! »"],["PASS","row keeps the dye color (FF0000 = 16711680)","row:HELMET=dyed_cap&16711680"],["PASS","dye color unchanged after lobby->smp->lobby","row:HELMET=dyed_cap&16711680"],["PASS","bot is on smp","There are 1 of a max of 10 players online: hmc_tst_e702"],["PASS","lobby->smp: equipment follows (fast transfer)","HMCCosmetics You have unequipped top_hat! »"],["PASS","smp equip","HMCCosmetics You have equipped top_hat! »"],["PASS","bot is back on lobby","There are 1 of a max of 10 players online: hmc_tst_e702"],["PASS","smp->lobby: equipment follows","HMCCosmetics You have unequipped top_hat! »"],["PASS","equip change during outage does not crash","HMCCosmetics You have unequipped top_hat! »"],["PASS","unequip made during the outage reached the row after it","row:"]]

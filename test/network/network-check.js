@@ -34,18 +34,24 @@ const onServer=(s,n)=>rcon(s,'list').includes(n);
  r=await say(b,'/cosmetic apply top_hat');ok('item perm only (category missing) denied',has(r,'do not have permission'),r.slice(-120));
  rcon('lobby',`lp user ${pn} permission set fearland.cosmetics.hats true`);await sleep(500);
  r=await say(b,'/cosmetic apply dragon_hat');ok('category only (item missing) denied',has(r,'do not have permission'),r.slice(-120));
- r=await say(b,'/cosmetic apply top_hat');ok('both perms equips',has(r,'equipped top_hat'),r.slice(-120));
+ r=await say(b,'/cosmetic apply top_hat');ok('both perms equips',has(r,'(?<!un)equipped top_hat'),r.slice(-120));
  rcon('lobby',`lp user ${pn} permission set fearland.cosmetics.mechanic_hat true`);await sleep(500);
- r=await say(b,'/cosmetic apply mechanic_hat');ok('item-only cosmetic (no category) equips',has(r,'equipped mechanic_hat'),r.slice(-120));
+ r=await say(b,'/cosmetic apply mechanic_hat');ok('item-only cosmetic (no category) equips',has(r,'(?<!un)equipped mechanic_hat'),r.slice(-120));
  r=await say(b,'/cosmetic apply top_hat');
  await sleep(2500);
  const uuid=rowOf(b);console.log('db',b.player.uuid,uuid);
  ok('postgres row written (exact uuid)',/^row:.*top_hat/.test(uuid),uuid);
+ // dyeable cosmetic: the color is saved in the row and survives a transfer
+ rcon('lobby',`lp user ${pn} permission set hmccosmetics.cmd.apply.color true`);rcon('lobby',`lp user ${pn} permission set hmccosmetics.cmd.dye true`);await sleep(800);
+ r=await say(b,`/cosmetic apply dyed_cap ${pn} #FF0000`,1500);ok('dyed_cap equips with color',has(r,'(?<!un)equipped dyed_cap'),r.slice(-100));
+ await sleep(2500);const dye=rowOf(b);ok('row keeps the dye color (FF0000 = 16711680)',/dyed_cap&16711680/.test(dye),dye);
+ b.chat('/server smp');await sleep(7000);b.chat('/server lobby');await sleep(7000);
+ await sleep(1000);const dye2=rowOf(b);ok('dye color unchanged after lobby->smp->lobby',/dyed_cap&16711680/.test(dye2),dye2);
  // fast transfer right after change
  r=await say(b,'/cosmetic apply top_hat',300);b.chat('/server smp');await sleep(7000);
  ok('bot is on smp',onServer('smp',pn),rcon('smp','list'));
  r=await say(b,'/cosmetic unapply HELMET',2000);ok('lobby->smp: equipment follows (fast transfer)',has(r,'unequipped top_hat'),r.slice(-150));
- r=await say(b,'/cosmetic apply top_hat',1500);ok('smp equip',has(r,'equipped top_hat'),r.slice(-100));
+ r=await say(b,'/cosmetic apply top_hat',1500);ok('smp equip',has(r,'(?<!un)equipped top_hat'),r.slice(-100));
  b.chat('/server lobby');await sleep(7000);
  ok('bot is back on lobby',onServer('lobby',pn),rcon('lobby','list'));
  r=await say(b,'/cosmetic unapply HELMET',2000);ok('smp->lobby: equipment follows',has(r,'unequipped top_hat'),r.slice(-150));
