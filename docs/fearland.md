@@ -1,6 +1,6 @@
 # FearLand fork of HMCCosmetics
 
-Base: upstream `remapped` (2.9.3). Version `2.9.3-fearland.1`. Paper 26.x, HibiscusCommons 0.9.3, Nexo 1.30 items via `nexo:<id>`.
+Base: upstream `remapped` (2.9.3). Version `2.9.3-fearland.2`. Paper 26.x, HibiscusCommons 0.9.3, Nexo 1.30 items via `nexo:<id>`.
 
 ## Changes
 - `database-settings.type: postgresql` (HikariCP, `INSERT ... ON CONFLICT DO UPDATE`). Table `cosmeticdatabase(uuid, cosmetics, updated_at)`; the `cosmetics` text keeps the upstream serialization (slot=id[&color]), so formats are unchanged.
@@ -25,3 +25,7 @@ Installed on `lobby` and `smp` by `fl deploy hibiscuscommons hmccosmetics` (depl
 - Dye colors: the saved value and its persistence are tested (`network-check.js`); how the tint looks in the client was not seen.
 - Staging bot tests need nLogin `show-dialogs` off (the login dialog blocks a scripted client); another session also toggles that setting, so coordinate before repeating.
 - Velocity is not needed: the shared PostgreSQL table was enough for equipment to follow the player between servers, including a transfer right after an equip.
+
+## Concurrency (fearland.2)
+
+`cosmeticdatabase` has a `version` column (added by `ALTER TABLE ... IF NOT EXISTS`; old rows start at 1). A load remembers the row's version; a save is `UPDATE ... WHERE uuid = ? AND version = ?` (insert-if-absent when no row was loaded). A write based on an older state (late quit save, retry after another server saved) matches no row, is logged as `Discarded a stale cosmetics save` and dropped; if the row already holds the same value (answer lost, retry) it counts as done. "Unchanged, skip" is decided on the writer thread, so change-then-revert queued back to back still writes the revert. Tests: `common/src/test/.../PostgreSQLDataTest` (two instances, one UUID; needs `HMC_TEST_PG_URL`, `HMC_TEST_PG_USER`, `HMC_TEST_PG_PASSWORD`, runs in a throwaway schema, skipped without them).

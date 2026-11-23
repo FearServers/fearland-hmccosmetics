@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,12 +20,17 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 /**
  * Shared PostgreSQL storage (HikariCP). Writes go through one single thread, so they reach the database in the order
  * they were requested; the row is serialized on the caller's thread (the Bukkit one) before it is queued.
  * A failed read completes exceptionally (never an empty {@link UserData}), so no user is created and nothing is
  * saved over the stored equipment.
+ * <p>
+ * Concurrency between servers: every row has a {@code version}. A load remembers the version it read and a save only
+ * replaces that exact version ({@code UPDATE ... WHERE version = ?}), so a late or retried write that was based on an
+ * older state is discarded instead of overwriting what another server saved since.
  */
 public class PostgreSQLData extends Data {
 
@@ -36,8 +42,12 @@ public class PostgreSQLData extends Data {
     private HikariDataSource pool;
     private ExecutorService writer;
     private ExecutorService reader;
-    /** What each player's row held when it was last read or written here; an unchanged user is not written back, so a stale load cannot overwrite another server's newer save. */
-    private final Map<UUID, String> known = new ConcurrentHashMap<>();
+    private Logger log;
+    private long retryMs = WRITE_RETRY_MS;
+    /** The row of each player as last read or written here: version 0 = no row. Only the writer thread changes a save's entry. */
+    private final Map<UUID, Row> known = new ConcurrentHashMap<>();
+
+    record Row(long version, String cosmetics) {}
 
     @Override
     public void setup() {
@@ -55,66 +65,120 @@ public class PostgreSQLData extends Data {
         // A database that stops answering must fail a statement (logged, retried by the next save), not park the writer thread forever.
         config.addDataSourceProperty("connectTimeout", "5");
         config.addDataSourceProperty("socketTimeout", "15");
-        pool = new HikariDataSource(config);
+        init(new HikariDataSource(config), HMCCosmeticsPlugin.getInstance().getLogger());
+    }
+
+    /** Used by {@link #setup()} and by the tests (own pool and logger). */
+    void init(HikariDataSource dataSource, Logger logger) {
+        pool = dataSource;
+        log = logger;
         writer = Executors.newSingleThreadExecutor(r -> new Thread(r, "HMCCosmetics-db-write"));
         reader = Executors.newCachedThreadPool(r -> new Thread(r, "HMCCosmetics-db-read"));
 
-        try (Connection c = pool.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "CREATE TABLE IF NOT EXISTS cosmeticdatabase (uuid uuid PRIMARY KEY, cosmetics text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())")) {
-            ps.execute();
+        try (Connection c = pool.getConnection(); Statement st = c.createStatement()) {
+            st.execute("CREATE TABLE IF NOT EXISTS cosmeticdatabase (uuid uuid PRIMARY KEY, cosmetics text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now(), version bigint NOT NULL DEFAULT 1)");
+            // Rows of the first release have no version; they start at 1 like a fresh row.
+            st.execute("ALTER TABLE cosmeticdatabase ADD COLUMN IF NOT EXISTS version bigint NOT NULL DEFAULT 1");
         } catch (SQLException e) {
-            HMCCosmeticsPlugin.getInstance().getLogger().severe("PostgreSQL table setup failed (" + e.getMessage() + "); reads will retry.");
+            log.severe("PostgreSQL table setup failed (" + e.getMessage() + "); reads will retry.");
         }
+    }
+
+    void setRetryMs(long ms) {
+        retryMs = ms;
     }
 
     @Override
     public void save(CosmeticUser user) {
-        final UUID id = user.getUniqueId();
-        final String serialized = serializeData(user);
-        if (serialized.equals(known.get(id))) return;
-        writer.execute(() -> {
+        saveSerialized(user.getUniqueId(), serializeData(user));
+    }
+
+    /** Queues the write of an already serialized row. Returns a future that completes when the write was applied, found stale, or gave up. */
+    CompletableFuture<Void> saveSerialized(UUID id, String serialized) {
+        return CompletableFuture.runAsync(() -> {
             // Retries stay on the single writer thread, so later saves of the same player still land after this one.
             for (int attempt = 1; attempt <= WRITE_ATTEMPTS; attempt++) {
-                try (Connection c = pool.getConnection(); PreparedStatement ps = c.prepareStatement(
-                        "INSERT INTO cosmeticdatabase (uuid, cosmetics, updated_at) VALUES (?, ?, now()) "
-                                + "ON CONFLICT (uuid) DO UPDATE SET cosmetics = EXCLUDED.cosmetics, updated_at = now()")) {
-                    ps.setObject(1, id);
-                    ps.setString(2, serialized);
-                    ps.executeUpdate();
-                    known.put(id, serialized);
+                try {
+                    write(id, serialized);
                     return;
                 } catch (SQLException e) {
-                    HMCCosmeticsPlugin.getInstance().getLogger().severe("Could not save cosmetics of " + id + " (attempt " + attempt + "/" + WRITE_ATTEMPTS + "): " + e.getMessage());
+                    log.severe("Could not save cosmetics of " + id + " (attempt " + attempt + "/" + WRITE_ATTEMPTS + "): " + e.getMessage());
                     if (attempt == WRITE_ATTEMPTS) return;
                     try {
-                        Thread.sleep(WRITE_RETRY_MS);
+                        Thread.sleep(retryMs);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         return;
                     }
                 }
             }
-        });
+        }, writer);
+    }
+
+    private void write(UUID id, String serialized) throws SQLException {
+        Row base = known.get(id);
+        // Decided here, not when the save was requested: an earlier queued save may have changed what is known.
+        if (base != null && base.cosmetics().equals(serialized)) return;
+        try (Connection c = pool.getConnection()) {
+            long baseVersion = base == null ? 0 : base.version();
+            if (baseVersion == 0) {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO cosmeticdatabase (uuid, cosmetics, updated_at, version) VALUES (?, ?, now(), 1) ON CONFLICT (uuid) DO NOTHING")) {
+                    ps.setObject(1, id);
+                    ps.setString(2, serialized);
+                    if (ps.executeUpdate() == 1) {
+                        known.put(id, new Row(1, serialized));
+                        return;
+                    }
+                }
+            } else {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE cosmeticdatabase SET cosmetics = ?, updated_at = now(), version = version + 1 WHERE uuid = ? AND version = ?")) {
+                    ps.setString(1, serialized);
+                    ps.setObject(2, id);
+                    ps.setLong(3, baseVersion);
+                    if (ps.executeUpdate() == 1) {
+                        known.put(id, new Row(baseVersion + 1, serialized));
+                        return;
+                    }
+                }
+            }
+            // Not applied: the row moved on. Either an earlier attempt of this very write got through (a retry after a
+            // lost answer), or another server saved something newer; the latter wins and this write is dropped.
+            Row current = read(c, id);
+            known.put(id, current);
+            if (current.cosmetics().equals(serialized)) return;
+            log.warning("Discarded a stale cosmetics save of " + id + ": the stored row changed since it was loaded here (version " + baseVersion + " -> " + current.version() + ").");
+        }
+    }
+
+    private static Row read(Connection c, UUID id) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement("SELECT cosmetics, version FROM cosmeticdatabase WHERE uuid = ?")) {
+            ps.setObject(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? new Row(rs.getLong("version"), rs.getString("cosmetics")) : new Row(0, "");
+            }
+        }
     }
 
     @Override
     public CompletableFuture<UserData> get(UUID uniqueId) {
+        return load(uniqueId).thenApply(row -> {
+            UserData data = new UserData(uniqueId);
+            data.setCosmetics(deserializeData(row.cosmetics()));
+            return data;
+        });
+    }
+
+    /** Reads the row (retrying), and remembers its version as the base of this server's next save. */
+    CompletableFuture<Row> load(UUID uniqueId) {
         return CompletableFuture.supplyAsync(() -> {
             SQLException last = null;
             for (int attempt = 1; attempt <= READ_ATTEMPTS; attempt++) {
-                try (Connection c = pool.getConnection(); PreparedStatement ps = c.prepareStatement(
-                        "SELECT cosmetics FROM cosmeticdatabase WHERE uuid = ?")) {
-                    ps.setObject(1, uniqueId);
-                    UserData data = new UserData(uniqueId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        String stored = "";
-                        if (rs.next()) {
-                            stored = rs.getString("cosmetics");
-                            data.setCosmetics(deserializeData(stored));
-                        }
-                        known.put(uniqueId, stored);
-                    }
-                    return data;
+                try (Connection c = pool.getConnection()) {
+                    Row row = read(c, uniqueId);
+                    known.put(uniqueId, row);
+                    return row;
                 } catch (SQLException e) {
                     last = e;
                     if (attempt < READ_ATTEMPTS) {
@@ -139,7 +203,7 @@ public class PostgreSQLData extends Data {
                 ps.setObject(1, uniqueId);
                 ps.executeUpdate();
             } catch (SQLException e) {
-                HMCCosmeticsPlugin.getInstance().getLogger().severe("Could not clear cosmetics of " + uniqueId + ": " + e.getMessage());
+                log.severe("Could not clear cosmetics of " + uniqueId + ": " + e.getMessage());
             }
         });
     }
@@ -151,7 +215,7 @@ public class PostgreSQLData extends Data {
         try {
             if (!writer.awaitTermination(30, TimeUnit.SECONDS)) {
                 // The pool stays open: closing it under a running save would lose that save for sure.
-                HMCCosmeticsPlugin.getInstance().getLogger().warning("Some cosmetic saves were still pending on shutdown.");
+                log.warning("Some cosmetic saves were still pending on shutdown.");
                 reader.shutdown();
                 return;
             }
