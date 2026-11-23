@@ -53,7 +53,7 @@ const has=(s,r)=>new RegExp(r,'i').test(s);
  // lobby restart: equipment survives a server restart (PostgreSQL)
  b=await connect();await sleep(5000);console.log(await say(b,'/login Fl_pass_123',3000));await sleep(6000);
  await say(b,'/cosmetic apply glacial_crown',1200);await say(b,'/cosmetic apply backpack_beehive',1200);await sleep(2500);
- console.log('restart lobby',await fetch(`https://staging.fearland.com.br/api/client/servers/${SRV.lobby.id}/power`,{method:'POST',headers:{Authorization:'Bearer '+process.env.PTERO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({signal:'restart'})}).then(r=>r.status));
+ {const st=await fetch(`https://staging.fearland.com.br/api/client/servers/${SRV.lobby.id}/power`,{method:'POST',headers:{Authorization:'Bearer '+process.env.PTERO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({signal:'restart'})}).then(r=>r.status);ok('lobby restart accepted by the Panel (2xx)',st>=200&&st<300,String(st));}
  b.end();await sleep(20000);
  await sleep(170000); // Paper boots in about 150 s on staging
  b=await connect();await sleep(5000);console.log(await say(b,'/login Fl_pass_123',3000));await sleep(6000);

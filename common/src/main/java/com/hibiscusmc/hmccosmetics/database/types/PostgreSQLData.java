@@ -13,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
@@ -46,6 +47,9 @@ public class PostgreSQLData extends Data {
     private long retryMs = WRITE_RETRY_MS;
     /** The row of each player as last read or written here: version 0 = no row. Only the writer thread changes a save's entry. */
     private final Map<UUID, Row> known = new ConcurrentHashMap<>();
+
+    /** Players whose in-memory state lost a conflict: nothing more is written for them until their next load, so a queued save of the same stale state cannot overwrite what won. */
+    private final Set<UUID> stale = ConcurrentHashMap.newKeySet();
 
     record Row(long version, String cosmetics) {}
 
@@ -116,6 +120,10 @@ public class PostgreSQLData extends Data {
     }
 
     private void write(UUID id, String serialized) throws SQLException {
+        if (stale.contains(id)) {
+            log.warning("Discarded a cosmetics save of " + id + ": an earlier save lost to a newer stored row and the player was not reloaded since.");
+            return;
+        }
         Row base = known.get(id);
         // Decided here, not when the save was requested: an earlier queued save may have changed what is known.
         if (base != null && base.cosmetics().equals(serialized)) return;
@@ -148,6 +156,7 @@ public class PostgreSQLData extends Data {
             Row current = read(c, id);
             known.put(id, current);
             if (current.cosmetics().equals(serialized)) return;
+            stale.add(id);
             log.warning("Discarded a stale cosmetics save of " + id + ": the stored row changed since it was loaded here (version " + baseVersion + " -> " + current.version() + ").");
         }
     }
@@ -177,7 +186,9 @@ public class PostgreSQLData extends Data {
             for (int attempt = 1; attempt <= READ_ATTEMPTS; attempt++) {
                 try (Connection c = pool.getConnection()) {
                     Row row = read(c, uniqueId);
-                    known.put(uniqueId, row);
+                    // Never move the base back: a save may have stored a newer version while this read was in flight.
+                    known.merge(uniqueId, row, (old, fresh) -> fresh.version() >= old.version() ? fresh : old);
+                    stale.remove(uniqueId);
                     return row;
                 } catch (SQLException e) {
                     last = e;
@@ -198,6 +209,7 @@ public class PostgreSQLData extends Data {
     @Override
     public void clear(UUID uniqueId) {
         known.remove(uniqueId);
+        stale.remove(uniqueId);
         writer.execute(() -> {
             try (Connection c = pool.getConnection(); PreparedStatement ps = c.prepareStatement("DELETE FROM cosmeticdatabase WHERE uuid = ?")) {
                 ps.setObject(1, uniqueId);

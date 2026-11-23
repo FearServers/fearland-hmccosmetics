@@ -166,4 +166,35 @@ class PostgreSQLDataTest {
             old.close();
         }
     }
+
+    @Test
+    void queuedSavesAfterALostConflictAreAlsoDiscarded() throws SQLException {
+        join(a);
+        save(a, "HELMET=top_hat");
+        join(b);
+        save(b, "HELMET=dragon_hat");
+        var first = a.saveSerialized(player, "HELMET=glacial_crown");   // stale: loses
+        var second = a.saveSerialized(player, "HELMET=mechanic_hat");   // queued behind it from the same stale state
+        first.join();
+        second.join();
+        assertEquals("HELMET=dragon_hat", stored());
+        join(a);                                                         // reload: saving works again
+        save(a, "HELMET=mechanic_hat");
+        assertEquals("HELMET=mechanic_hat", stored());
+    }
+
+    @Test
+    void staleServerCannotRecreateAClearedRow() throws SQLException {
+        join(a);
+        save(a, "HELMET=top_hat");
+        join(b);
+        b.clear(player);
+        b.saveSerialized(player, "HELMET=x").join(); // flush the writer queue (clear ran before it)
+        try (HikariDataSource p = pool(); Connection c = p.getConnection(); Statement st = c.createStatement()) {
+            st.execute("DELETE FROM cosmeticdatabase WHERE uuid = '" + player + "'");
+        }
+        save(a, "HELMET=glacial_crown");
+        save(a, "HELMET=mechanic_hat");
+        assertEquals(null, stored());
+    }
 }
