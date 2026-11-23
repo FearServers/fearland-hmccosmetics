@@ -155,7 +155,8 @@ public class PostgreSQLData extends Data {
             // lost answer), or another server saved something newer; the latter wins and this write is dropped.
             Row current = read(c, id);
             known.put(id, current);
-            if (current.cosmetics().equals(serialized)) return;
+            // version 0 = the row is gone (cleared elsewhere): an equal value ("") is not our write, it must not recreate it.
+            if (current.version() != 0 && current.cosmetics().equals(serialized)) return;
             stale.add(id);
             log.warning("Discarded a stale cosmetics save of " + id + ": the stored row changed since it was loaded here (version " + baseVersion + " -> " + current.version() + ").");
         }
@@ -187,8 +188,8 @@ public class PostgreSQLData extends Data {
                 try (Connection c = pool.getConnection()) {
                     Row row = read(c, uniqueId);
                     // Never move the base back: a save may have stored a newer version while this read was in flight.
-                    known.merge(uniqueId, row, (old, fresh) -> fresh.version() >= old.version() ? fresh : old);
-                    stale.remove(uniqueId);
+                    // The stale mark is lifted only when this read is the one that is kept.
+                    if (known.merge(uniqueId, row, (old, fresh) -> fresh.version() >= old.version() ? fresh : old) == row) stale.remove(uniqueId);
                     return row;
                 } catch (SQLException e) {
                     last = e;

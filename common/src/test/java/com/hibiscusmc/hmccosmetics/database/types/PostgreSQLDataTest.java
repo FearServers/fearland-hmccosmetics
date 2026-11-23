@@ -197,4 +197,16 @@ class PostgreSQLDataTest {
         save(a, "HELMET=mechanic_hat");
         assertEquals(null, stored());
     }
+
+    @Test
+    void staleEmptySaveCannotRecreateAClearedRow() throws SQLException {
+        join(a);
+        save(a, "HELMET=top_hat");
+        try (HikariDataSource p = pool(); Connection c = p.getConnection(); Statement st = c.createStatement()) {
+            st.execute("DELETE FROM cosmeticdatabase WHERE uuid = '" + player + "'"); // cleared elsewhere
+        }
+        save(a, "");                       // stale player removed everything
+        save(a, "HELMET=mechanic_hat");
+        assertEquals(null, stored());
+    }
 }
