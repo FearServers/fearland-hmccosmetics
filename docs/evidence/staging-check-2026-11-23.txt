@@ -1,0 +1,18 @@
+resource pack offered
+You have successfully registered.
+You are already logged in.
+PASS no perms denied HMCCosmetics You do not have permission for this cosmetic! »
+PASS item only denied HMCCosmetics You do not have permission for this cosmetic! »
+PASS category only denied HMCCosmetics You do not have permission for this cosmetic! »
+PASS both perms equips (Nexo) HMCCosmetics You have equipped top_hat! »
+PASS backpack category only equips (Nexo) HMCCosmetics You have equipped backpack_beehive! »
+PASS crown equips (Nexo) HMCCosmetics You have equipped glacial_crown! »
+PASS on smp (server log) [00:30:43] [luckperms-worker-8/INFO]: [LP] LOG > (Console@lobby) [U] (hmc_stg_a1)
+[00:30:54] [User Authenticator #0/INFO]: UUID of player hmc_stg_a1 is 0b349cf6-1083-3867-b093-2e106e03980e
+[00:30:57] [Server thread/INFO]: hmc_stg_a1[/172.18.0.1:40578] logged in with entity id 8 at ([minecraft:spawn]4.5, 14.0, 2.5)
+PASS lobby->smp: equipment follows from PostgreSQL HMCCosmetics You have unequipped glacial_crown! »
+PASS smp equip HMCCosmetics You have equipped top_hat! »
+PASS smp->lobby: backpack followed HMCCosmetics You have unequipped backpack_beehive! »
+resource pack offered
+You have successfully logged.
+PASS reconnect: helmet persisted HMCCosmetics You have unequipped top_hat! »

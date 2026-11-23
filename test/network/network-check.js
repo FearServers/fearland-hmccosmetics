@@ -41,6 +41,12 @@ const onServer=(s,n)=>rcon(s,'list').includes(n);
  await sleep(2500);
  const uuid=rowOf(b);console.log('db',b.player.uuid,uuid);
  ok('postgres row written (exact uuid)',/^row:.*top_hat/.test(uuid),uuid);
+ // dyeable cosmetic: the color is saved in the row and survives a transfer
+ rcon('lobby',`lp user ${pn} permission set hmccosmetics.cmd.apply.color true`);rcon('lobby',`lp user ${pn} permission set hmccosmetics.cmd.dye true`);await sleep(800);
+ r=await say(b,`/cosmetic apply dyed_cap ${pn} #FF0000`,1500);ok('dyed_cap equips with color',has(r,'equipped dyed_cap'),r.slice(-100));
+ await sleep(2500);const dye=rowOf(b);ok('row keeps the dye color (FF0000 = 16711680)',/dyed_cap&16711680/.test(dye),dye);
+ b.chat('/server smp');await sleep(7000);b.chat('/server lobby');await sleep(7000);
+ await sleep(1000);const dye2=rowOf(b);ok('dye color unchanged after lobby->smp->lobby',/dyed_cap&16711680/.test(dye2),dye2);
  // fast transfer right after change
  r=await say(b,'/cosmetic apply top_hat',300);b.chat('/server smp');await sleep(7000);
  ok('bot is on smp',onServer('smp',pn),rcon('smp','list'));
